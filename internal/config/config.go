@@ -50,9 +50,9 @@ func LoadConfig() *Config {
 		log.Fatalf("Error reading config file, %s", err)
 	}
 
-	viper.SetEnvPrefix("APP")
 	viper.AutomaticEnv()
 
+	_ = viper.BindEnv("db.host", "DB_HOST")
 	_ = viper.BindEnv("db.user", "DB_USER")
 	_ = viper.BindEnv("db.password", "DB_PASSWORD")
 	_ = viper.BindEnv("db.dbname", "DB_NAME")
@@ -74,6 +74,7 @@ func LoadConfig() *Config {
 
 	return &cfg
 }
+
 func (c *Config) Validate() error {
 	if c.Auth.JWTSecret == "" {
 		return errors.New("auth.jwt_secret is not set")
