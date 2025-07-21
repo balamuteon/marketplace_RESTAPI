@@ -1,8 +1,10 @@
-// cmd/app/main.go
 package main
 
 import (
 	"marketplace/internal/app"
+
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 // @title       Marketplace API

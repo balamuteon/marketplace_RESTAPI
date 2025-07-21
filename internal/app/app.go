@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"marketplace/docs"
 	"marketplace/internal/config"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-migrate/migrate/v4"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -38,6 +40,9 @@ func New() *App {
 
 	// 3. Инициализация зависимостей (БД, менеджер токенов)
 	dbPool := initDB(cfg, log)
+
+	runMigrations(cfg, log)
+
 	tokenManager := initTokenManager(cfg, log)
 
 	// 4. Сборка слоев приложения и роутера
@@ -84,12 +89,48 @@ func (a *App) Run() {
 	a.log.Info("server exited properly")
 }
 
+// runMigrations применяет миграции базы данных при старте приложения.
+func runMigrations(cfg *config.Config, log *slog.Logger) {
+	sslMode := "disable"
+	if cfg.Env != "local" {
+		sslMode = "require"
+	}
+
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
+		cfg.Database.User,
+		cfg.Database.Password,
+		cfg.Database.Host,
+		cfg.Database.Port,
+		cfg.Database.DBName,
+		sslMode,
+	)
+
+	log.Info("applying database migrations...")
+
+	m, err := migrate.New(
+		"file:///app/migrations", // Путь к миграциям внутри контейнера
+		dsn,
+	)
+	if err != nil {
+		log.Error("failed to create migrate instance", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	// Применяем миграции. Ошибка "no change" не является критической.
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		log.Error("failed to apply migrations", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	log.Info("database migrations applied successfully")
+}
+
 // setupSwagger настраивает статическую информацию для документации.
 func setupSwagger(cfg *config.Config) {
 	docs.SwaggerInfo.Title = "Marketplace API"
 	docs.SwaggerInfo.Description = "API для учебного проекта торговой площадки."
 	docs.SwaggerInfo.Version = "1.0"
-	docs.SwaggerInfo.Host = "localhost:8080" // TODO: Вынести в конфиг
+	docs.SwaggerInfo.Host = cfg.Swagger.Host // TODO: Вынести в конфиг
 	docs.SwaggerInfo.BasePath = "/api/v1"
 	docs.SwaggerInfo.Schemes = []string{"http"}
 }
