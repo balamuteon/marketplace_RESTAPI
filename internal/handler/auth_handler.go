@@ -20,6 +20,7 @@ import (
 // @Failure 400 {object} ErrorResponse "Неверный формат запроса"
 // @Failure 409 {object} ErrorResponse "Пользователь уже существует"
 // @Failure 500 {object} ErrorResponse "Внутренняя ошибка сервера"
+// @Router /auth/register [post]
 func (h *Handler) signUp(c *gin.Context) {
 	var req models.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

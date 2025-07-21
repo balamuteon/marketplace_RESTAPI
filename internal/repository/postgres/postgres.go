@@ -11,7 +11,7 @@ import (
 
 const (
 	usersTable = "users"
-	adsTable = "ads"
+	adsTable   = "ads"
 )
 
 func NewConnection(cfg config.Database, log *slog.Logger) (*pgxpool.Pool, error) {

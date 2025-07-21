@@ -10,11 +10,16 @@ import (
 	"github.com/spf13/viper"
 )
 
+type Swagger struct {
+	Host string `mapstructure:"host"`
+}
+
 type Config struct {
 	Env        string     `mapstructure:"ENV"`
 	HTTPServer HTTPServer `mapstructure:"HTTP_SERVER"`
 	Database   Database   `mapstructure:"DB"`
 	Auth       Auth       `mapstructure:"AUTH"`
+	Swagger    Swagger    `mapstructure:"SWAGGER"`
 }
 
 type HTTPServer struct {
@@ -52,6 +57,7 @@ func LoadConfig() *Config {
 
 	viper.AutomaticEnv()
 
+	_ = viper.BindEnv("swagger.host", "SWAGGER_HOST")
 	_ = viper.BindEnv("db.host", "DB_HOST")
 	_ = viper.BindEnv("db.user", "DB_USER")
 	_ = viper.BindEnv("db.password", "DB_PASSWORD")

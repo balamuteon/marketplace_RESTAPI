@@ -112,11 +112,9 @@ definitions:
       username:
         type: string
     type: object
-host: localhost:8080
+host: marketplace-restapi.onrender.com
 info:
-  contact:
-    name: Lev Vinogradov
-    url: http://github.com/your-profile
+  contact: {}
   description: API для учебного проекта торговой площадки.
   title: Marketplace API
   version: "1.0"
@@ -351,10 +349,44 @@ paths:
       summary: Авторизация пользователя
       tags:
       - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Создает нового пользователя в системе
+      parameters:
+      - description: Данные для регистрации
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/models.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Пользователь успешно создан
+          schema:
+            $ref: '#/definitions/models.UserResponse'
+        "400":
+          description: Неверный формат запроса
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "409":
+          description: Пользователь уже существует
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Регистрация нового пользователя
+      tags:
+      - auth
 securityDefinitions:
   ApiKeyAuth:
     description: Для доступа к защищенным эндпоинтам, укажите токен в формате "Bearer
-      <ваш_токен>"
+      ваш_токен"
     in: header
     name: Authorization
     type: apiKey

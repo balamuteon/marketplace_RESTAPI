@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"marketplace/internal/service"
 	"marketplace/pkg/auth"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 
@@ -29,7 +30,11 @@ func (h *Handler) InitRoutes() *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Logger(), gin.Recovery())
 
-	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.URL("/swagger/doc.json")))
+
+	router.GET("/", func(c *gin.Context) {
+		c.Redirect(http.StatusMovedPermanently, "/swagger/index.html")
+	})
 
 	apiV1 := router.Group("/api/v1")
 	{
@@ -44,7 +49,8 @@ func (h *Handler) InitRoutes() *gin.Engine {
 			adsGroup.GET("", h.GetAllAds)
 			adsGroup.GET("/:id", h.GetAdByID)
 
-			adsSecure := adsGroup.Group("", h.AuthMiddleware(h.TokenManager, h.log))
+			adsSecure := adsGroup.Group("")
+			adsSecure.Use(h.AuthMiddleware())
 			{
 				adsSecure.POST("", h.CreateAd)
 				adsSecure.PATCH("/:id", h.UpdateAd)

@@ -1,8 +1,7 @@
 package handler
 
 import (
-	"log/slog"
-	"marketplace/pkg/auth"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -15,22 +14,22 @@ const (
 	userCtxKey = contextKey("userID")
 )
 
-func (h *Handler) AuthMiddleware(tokenManager *auth.TokenManager, log *slog.Logger) gin.HandlerFunc {
+func (h *Handler) AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			h.newErrorResponse(c, http.StatusUnauthorized, "authorization header is empty", nil)
+			h.newErrorResponse(c, http.StatusUnauthorized, "authorization header is empty", fmt.Errorf("authorization header is empty"))
 			return
 		}
 
 		headerParts := strings.Split(authHeader, " ")
 		if len(headerParts) != 2 || headerParts[0] != "Bearer" {
-			h.newErrorResponse(c, http.StatusUnauthorized, "invalid authorization header format", nil)
+			h.newErrorResponse(c, http.StatusUnauthorized, "invalid authorization header format", fmt.Errorf("invalid authorization header format"))
 			return
 		}
 
 		tokenString := headerParts[1]
-		claims, err := tokenManager.ParseToken(tokenString)
+		claims, err := h.TokenManager.ParseToken(tokenString)
 		if err != nil {
 			h.newErrorResponse(c, http.StatusUnauthorized, "invalid token", err)
 			return

@@ -12,3 +12,6 @@ DB:
 
 AUTH:
   TOKEN_TTL: 12h
+
+SWAGGER:
+  HOST: "localhost:8080"
