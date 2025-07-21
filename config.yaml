@@ -1,0 +1,14 @@
+ENV: "local"
+
+HTTP_SERVER:
+  PORT: "8080"
+  TIMEOUT: 4s
+  IDLE_TIMEOUT: 60s
+
+DB:
+  HOST: "db"
+  PORT: "5432"
+  SSLMODE: "disable"
+
+AUTH:
+  TOKEN_TTL: 12h

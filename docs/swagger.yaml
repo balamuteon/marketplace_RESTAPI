@@ -1,0 +1,361 @@
+basePath: /api/v1
+definitions:
+  handler.ErrorResponse:
+    properties:
+      message:
+        type: string
+    type: object
+  models.Ad:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      image_url:
+        type: string
+      price:
+        type: number
+      title:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  models.AdResponse:
+    properties:
+      author_id:
+        type: integer
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      image_url:
+        type: string
+      price:
+        type: number
+      title:
+        type: string
+    type: object
+  models.CreateAdRequest:
+    properties:
+      description:
+        maxLength: 1000
+        type: string
+      image_url:
+        type: string
+      price:
+        minimum: 0
+        type: number
+      title:
+        maxLength: 100
+        minLength: 1
+        type: string
+    required:
+    - description
+    - price
+    - title
+    type: object
+  models.CreateAdResponse:
+    properties:
+      id:
+        type: integer
+    type: object
+  models.LoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  models.LoginResponse:
+    properties:
+      token:
+        type: string
+    type: object
+  models.RegisterRequest:
+    properties:
+      password:
+        maxLength: 64
+        minLength: 8
+        type: string
+      username:
+        maxLength: 32
+        minLength: 4
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  models.UpdateAdRequest:
+    properties:
+      description:
+        type: string
+      price:
+        type: number
+      title:
+        type: string
+    type: object
+  models.UserResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      username:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    name: Lev Vinogradov
+    url: http://github.com/your-profile
+  description: API для учебного проекта торговой площадки.
+  title: Marketplace API
+  version: "1.0"
+paths:
+  /ads:
+    get:
+      description: Возвращает список объявлений с возможностью пагинации и сортировки
+      parameters:
+      - default: 1
+        description: Номер страницы
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Количество элементов на странице
+        in: query
+        name: limit
+        type: integer
+      - default: created_at
+        description: Поле для сортировки
+        enum:
+        - created_at
+        - price
+        in: query
+        name: sort_by
+        type: string
+      - default: desc
+        description: Порядок сортировки
+        enum:
+        - asc
+        - desc
+        in: query
+        name: sort_order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список объявлений
+          schema:
+            items:
+              $ref: '#/definitions/models.AdResponse'
+            type: array
+        "400":
+          description: Неверные параметры запроса
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Получение списка объявлений
+      tags:
+      - ads
+    post:
+      consumes:
+      - application/json
+      description: Создает новое объявление от имени авторизованного пользователя
+      parameters:
+      - description: Данные для создания объявления
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateAdRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: ID созданного объявления" // <--- ИЗМЕНЕНО
+          schema:
+            $ref: '#/definitions/models.CreateAdResponse'
+        "400":
+          description: Неверный формат запроса
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Пользователь не авторизован
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Создание нового объявления
+      tags:
+      - ads
+  /ads/{id}:
+    delete:
+      description: Удаляет объявление (только владелец)
+      parameters:
+      - description: ID объявления для удаления
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Неверный ID объявления
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Пользователь не авторизован
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "403":
+          description: Доступ запрещен (не владелец)
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Удаление объявления
+      tags:
+      - ads
+    get:
+      description: Возвращает одно объявление по его уникальному идентификатору
+      parameters:
+      - description: ID объявления
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Полные данные объявления
+          schema:
+            $ref: '#/definitions/models.Ad'
+        "400":
+          description: Неверный ID объявления
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "404":
+          description: Объявление не найдено
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Получение объявления по ID
+      tags:
+      - ads
+    patch:
+      consumes:
+      - application/json
+      description: Обновляет данные объявления (только владелец)
+      parameters:
+      - description: ID объявления
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Поля для обновления
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateAdRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Обновленные данные объявления
+          schema:
+            $ref: '#/definitions/models.Ad'
+        "400":
+          description: Неверный формат запроса или ID
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Пользователь не авторизован
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "403":
+          description: Доступ запрещен (не владелец)
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "404":
+          description: Объявление не найдено
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Обновление объявления
+      tags:
+      - ads
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Авторизует пользователя и возвращает JWT токен
+      parameters:
+      - description: Данные для входа
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Успешная авторизация
+          schema:
+            $ref: '#/definitions/models.LoginResponse'
+        "400":
+          description: Неверный формат запроса
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Неверные учетные данные
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Авторизация пользователя
+      tags:
+      - auth
+securityDefinitions:
+  ApiKeyAuth:
+    description: Для доступа к защищенным эндпоинтам, укажите токен в формате "Bearer
+      <ваш_токен>"
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

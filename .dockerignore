@@ -1,0 +1,6 @@
+postgres-data/
+
+.git/
+.gitignore
+
+server
