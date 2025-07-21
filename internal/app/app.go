@@ -133,6 +133,12 @@ func setupSwagger(cfg *config.Config) {
 	docs.SwaggerInfo.Host = cfg.Swagger.Host // TODO: Вынести в конфиг
 	docs.SwaggerInfo.BasePath = "/api/v1"
 	docs.SwaggerInfo.Schemes = []string{"http"}
+
+	if cfg.Env == "local" {
+		docs.SwaggerInfo.Schemes = []string{"http"}
+	} else {
+		docs.SwaggerInfo.Schemes = []string{"https"}
+	}
 }
 
 // initDB инициализирует подключение к базе данных.
