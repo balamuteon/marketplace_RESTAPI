@@ -1,17 +1,17 @@
-ENV: "local"
+env: "local"
 
-HTTP_SERVER:
-  PORT: "8080"
-  TIMEOUT: 4s
-  IDLE_TIMEOUT: 60s
+http_server:
+  port: "8080"
+  timeout: 4s
+  idle_timeout: 60s
 
-DB:
-  HOST: "db"
-  PORT: "5432"
-  SSLMODE: "disable"
+db:
+  host: "db"
+  port: "5432"
+  sslmode: "disable"
 
-AUTH:
-  TOKEN_TTL: 12h
+auth:
+  token_ttl: 12h
 
-SWAGGER:
-  HOST: "localhost:8080"
+swagger:
+  host: "localhost:8080"

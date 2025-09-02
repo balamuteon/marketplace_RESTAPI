@@ -83,7 +83,7 @@ func (a *App) Run() {
 		os.Exit(1)
 	}
 
-	a.dbPool.Close()
+	defer a.dbPool.Close()
 	a.log.Info("database connection pool closed")
 
 	a.log.Info("server exited properly")
@@ -130,7 +130,7 @@ func setupSwagger(cfg *config.Config) {
 	docs.SwaggerInfo.Title = "Marketplace API"
 	docs.SwaggerInfo.Description = "API для учебного проекта торговой площадки."
 	docs.SwaggerInfo.Version = "1.0"
-	docs.SwaggerInfo.Host = cfg.Swagger.Host // TODO: Вынести в конфиг
+	docs.SwaggerInfo.Host = cfg.Swagger.Host
 	docs.SwaggerInfo.BasePath = "/api/v1"
 	docs.SwaggerInfo.Schemes = []string{"http"}
 

@@ -15,17 +15,17 @@ type Swagger struct {
 }
 
 type Config struct {
-	Env        string     `mapstructure:"ENV"`
-	HTTPServer HTTPServer `mapstructure:"HTTP_SERVER"`
-	Database   Database   `mapstructure:"DB"`
-	Auth       Auth       `mapstructure:"AUTH"`
-	Swagger    Swagger    `mapstructure:"SWAGGER"`
+	Env        string     `mapstructure:"env"`
+	HTTPServer HTTPServer `mapstructure:"http_server"`
+	Database   Database   `mapstructure:"db"`
+	Auth       Auth       `mapstructure:"auth"`
+	Swagger    Swagger    `mapstructure:"swagger"`
 }
 
 type HTTPServer struct {
-	Port        string        `mapstructure:"PORT"`
-	Timeout     time.Duration `mapstructure:"TIMEOUT"`
-	IdleTimeout time.Duration `mapstructure:"IDLE_TIMEOUT"`
+	Port        string        `mapstructure:"port"`
+	Timeout     time.Duration `mapstructure:"timeout"`
+	IdleTimeout time.Duration `mapstructure:"idle_timeout"`
 }
 
 type Database struct {
@@ -57,12 +57,21 @@ func LoadConfig() *Config {
 
 	viper.AutomaticEnv()
 
-	_ = viper.BindEnv("swagger.host", "SWAGGER_HOST")
+	// Server
+	_ = viper.BindEnv("http_server.port", "HTTP_SERVER_PORT")
+	_ = viper.BindEnv("http_server.timeout", "HTTP_SERVER_TIMEOUT")
+	_ = viper.BindEnv("http_server.idle_timeout", "HTTP_SERVER_IDLE_TIMEOUT")
+
+	// Database
 	_ = viper.BindEnv("db.host", "DB_HOST")
 	_ = viper.BindEnv("db.user", "DB_USER")
 	_ = viper.BindEnv("db.password", "DB_PASSWORD")
 	_ = viper.BindEnv("db.dbname", "DB_NAME")
+	
+	// Swagger
+	_ = viper.BindEnv("swagger.host", "SWAGGER_HOST")
 
+	// Auth
 	_ = viper.BindEnv("auth.jwtsecret", "AUTH_JWT_SECRET")
 
 	var cfg Config
