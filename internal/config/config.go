@@ -10,15 +10,12 @@ import (
 	"github.com/spf13/viper"
 )
 
-type Swagger struct {
-	Host string `mapstructure:"host"`
-}
-
 type Config struct {
 	Env        string     `mapstructure:"env"`
 	HTTPServer HTTPServer `mapstructure:"http_server"`
 	Database   Database   `mapstructure:"db"`
 	Auth       Auth       `mapstructure:"auth"`
+	Redis      Redis      `mapstructure:"redis"`
 	Swagger    Swagger    `mapstructure:"swagger"`
 }
 
@@ -40,6 +37,17 @@ type Database struct {
 type Auth struct {
 	JWTSecret string        `mapstructure:"jwtsecret"`
 	TokenTTL  time.Duration `mapstructure:"token_ttl"`
+}
+
+type Redis struct {
+	Host     string `mapstructure:"host"`
+	Port     string `mapstructure:"port"`
+	Password string `mapstructure:"password"`
+	DB       int    `mapstructure:"db"`
+}
+
+type Swagger struct {
+	Host string `mapstructure:"host"`
 }
 
 func LoadConfig() *Config {
@@ -67,7 +75,12 @@ func LoadConfig() *Config {
 	_ = viper.BindEnv("db.user", "DB_USER")
 	_ = viper.BindEnv("db.password", "DB_PASSWORD")
 	_ = viper.BindEnv("db.dbname", "DB_NAME")
-	
+
+	// Redis
+	_ = viper.BindEnv("redis.host", "REDIS_HOST")
+	_ = viper.BindEnv("redis.port", "REDIS_PORT")
+	_ = viper.BindEnv("redis.password", "REDIS_PASSWORD")
+
 	// Swagger
 	_ = viper.BindEnv("swagger.host", "SWAGGER_HOST")
 

@@ -2,14 +2,17 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"marketplace/docs"
 	"marketplace/internal/config"
 	"marketplace/internal/handler"
+	cache "marketplace/internal/repository/cache"
 	"marketplace/internal/repository/postgres"
 	"marketplace/internal/service"
 	"marketplace/pkg/auth"
+	redis "marketplace/pkg/cache"
 	"marketplace/pkg/logger"
 	"net/http"
 	"os"
@@ -23,13 +26,14 @@ import (
 )
 
 type App struct {
-	log    *slog.Logger
-	server *http.Server
-	dbPool *pgxpool.Pool
+	log         *slog.Logger
+	server      *http.Server
+	dbPool      *pgxpool.Pool
+	redisClient *redis.CacheClient
 }
 
 // New создает новый экземпляр приложения со всеми зависимостями.
-func New() *App {
+func New() (*App, error) {
 	// 1. Инициализация конфига и логгера
 	cfg := config.LoadConfig()
 	log := logger.NewLogger(cfg.Env)
@@ -39,23 +43,45 @@ func New() *App {
 	setupSwagger(cfg)
 
 	// 3. Инициализация зависимостей (БД, менеджер токенов)
-	dbPool := initDB(cfg, log)
+	dbPool, err := initDB(cfg, log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init db: %w", err)
+	}
 
-	runMigrations(cfg, log)
+	// 4. Подключение к Redis
+	redisClient, err := redis.NewRedisClient(cfg.Redis)
+	if err != nil {
+		dbPool.Close()
+		return nil, fmt.Errorf("failed to init cache: %w", err)
+	}
 
-	tokenManager := initTokenManager(cfg, log)
+	// 5. Применение миграций
+	if err := runMigrations(cfg, log); err != nil {
+		dbPool.Close()
+		redisClient.Client.Close()
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
+	}
 
-	// 4. Сборка слоев приложения и роутера
-	router := initRouter(dbPool, tokenManager, cfg, log)
+	// 6. Инициализация менеджера токенов
+	tokenManager, err := auth.NewTokenManager(cfg.Auth)
+	if err != nil {
+		dbPool.Close()
+		redisClient.Client.Close()
+		return nil, fmt.Errorf("failed to init token manager: %w", err)
+	}
 
-	// 5. Настройка HTTP-сервера
+	// 7. Инициализация роутера
+	router := initRouter(dbPool, redisClient, tokenManager, cfg, log)
+
+	// 8. Настройка HTTP-сервера
 	server := initServer(cfg, router)
 
 	return &App{
-		log:    log,
-		server: server,
-		dbPool: dbPool,
-	}
+		log:         log,
+		server:      server,
+		dbPool:      dbPool,
+		redisClient: redisClient,
+	}, nil
 }
 
 // Run запускает HTTP-сервер и обрабатывает graceful shutdown.
@@ -84,13 +110,15 @@ func (a *App) Run() {
 	}
 
 	defer a.dbPool.Close()
+	defer a.redisClient.Client.Close()
+
 	a.log.Info("database connection pool closed")
 
 	a.log.Info("server exited properly")
 }
 
 // runMigrations применяет миграции базы данных при старте приложения.
-func runMigrations(cfg *config.Config, log *slog.Logger) {
+func runMigrations(cfg *config.Config, log *slog.Logger) error {
 	sslMode := "disable"
 	if cfg.Env != "local" {
 		sslMode = "require"
@@ -107,22 +135,17 @@ func runMigrations(cfg *config.Config, log *slog.Logger) {
 
 	log.Info("applying database migrations...")
 
-	m, err := migrate.New(
-		"file:///app/migrations", // Путь к миграциям внутри контейнера
-		dsn,
-	)
+	m, err := migrate.New("file:///app/migrations", dsn)
 	if err != nil {
-		log.Error("failed to create migrate instance", slog.String("error", err.Error()))
-		os.Exit(1)
+		return fmt.Errorf("failed to create migrate instance: %w", err)
 	}
 
-	// Применяем миграции. Ошибка "no change" не является критической.
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		log.Error("failed to apply migrations", slog.String("error", err.Error()))
-		os.Exit(1)
+	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return fmt.Errorf("failed to apply migrations: %w", err)
 	}
 
 	log.Info("database migrations applied successfully")
+	return nil
 }
 
 // setupSwagger настраивает статическую информацию для документации.
@@ -142,29 +165,35 @@ func setupSwagger(cfg *config.Config) {
 }
 
 // initDB инициализирует подключение к базе данных.
-func initDB(cfg *config.Config, log *slog.Logger) *pgxpool.Pool {
+func initDB(cfg *config.Config, log *slog.Logger) (*pgxpool.Pool, error) {
 	dbPool, err := postgres.NewConnection(cfg.Database, log)
 	if err != nil {
-		log.Error("failed to connect to database", slog.String("error", err.Error()))
-		os.Exit(1)
+		return nil, err // Просто возвращаем ошибку
 	}
-	return dbPool
-}
-
-// initTokenManager инициализирует менеджер JWT.
-func initTokenManager(cfg *config.Config, log *slog.Logger) *auth.TokenManager {
-	tokenManager, err := auth.NewTokenManager(cfg.Auth.JWTSecret)
-	if err != nil {
-		log.Error("failed to init token manager", slog.String("error", err.Error()))
-		os.Exit(1)
+	// Ping остается для проверки
+	if err := dbPool.Ping(context.Background()); err != nil {
+		return nil, err
 	}
-	return tokenManager
+	return dbPool, err
 }
 
 // initRouter собирает все слои приложения и инициализирует роутер.
-func initRouter(dbPool *pgxpool.Pool, tm *auth.TokenManager, cfg *config.Config, log *slog.Logger) *gin.Engine {
-	repos := postgres.NewRepository(dbPool)
-	services := service.NewService(repos, tm, cfg.Auth.TokenTTL)
+func initRouter(dbPool *pgxpool.Pool, redis *redis.CacheClient, tm *auth.TokenManager, cfg *config.Config, log *slog.Logger) *gin.Engine {
+	// 1. Создаем основной репозиторий, который работает с PostgreSQL.
+	postgresRepos := postgres.NewRepository(dbPool)
+
+	// 2. "Оборачиваем" репозиторий объявлений кеширующим декоратором.
+	cachedAdRepo := cache.NewAdRepository(postgresRepos.Ad, redis)
+
+	// 3. Создаем "обертку" для репозиториев, где Ad заменен на кеширующий.
+	finalRepos := &postgres.Repository{
+		User: postgresRepos.User,
+		Ad:   cachedAdRepo,
+	}
+
+	// 4. Передаем итоговый набор репозиториев в сервис.
+	// AdService теперь будет работать с кеширующей версией, даже не зная об этом.
+	services := service.NewService(finalRepos, tm)
 	handlers := handler.NewHandler(services, tm, log)
 	return handlers.InitRoutes()
 }

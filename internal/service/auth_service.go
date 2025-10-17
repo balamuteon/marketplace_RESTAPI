@@ -8,7 +8,6 @@ import (
 	"marketplace/internal/repository/postgres"
 	"marketplace/pkg/auth"
 	"marketplace/pkg/hash"
-	"time"
 )
 
 var (
@@ -19,14 +18,12 @@ var (
 type authService struct {
 	userRepo     postgres.UserRepository
 	tokenManager *auth.TokenManager
-	tokenTTL     time.Duration
 }
 
-func NewAuthService(userRepo postgres.UserRepository, tm *auth.TokenManager, ttl time.Duration) AuthService {
+func NewAuthService(userRepo postgres.UserRepository, tm *auth.TokenManager) AuthService {
 	return &authService{
 		userRepo:     userRepo,
 		tokenManager: tm,
-		tokenTTL:     ttl,
 	}
 }
 
@@ -74,7 +71,7 @@ func (s *authService) Login(ctx context.Context, username, password string) (str
 		return "", ErrInvalidCredentials
 	}
 
-	token, err := s.tokenManager.GenerateToken(user.ID, user.Username, s.tokenTTL)
+	token, err := s.tokenManager.GenerateToken(user.ID, user.Username)
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", op, err)
 	}

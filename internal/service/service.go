@@ -5,7 +5,6 @@ import (
 	"marketplace/internal/models"
 	"marketplace/internal/repository/postgres"
 	"marketplace/pkg/auth"
-	"time"
 )
 
 type AdService interface {
@@ -26,16 +25,9 @@ type Service struct {
 	Ad   AdService
 }
 
-type Deps struct {
-	UserRepo     postgres.UserRepository
-	AdRepo       postgres.AdRepository
-	TokenManager *auth.TokenManager
-	TokenTTL     time.Duration
-}
-
-func NewService(repos *postgres.Repository, tm *auth.TokenManager, ttl time.Duration) *Service {
+func NewService(repos *postgres.Repository, tm *auth.TokenManager) *Service {
 	return &Service{
-		Auth: NewAuthService(repos.User, tm, ttl),
+		Auth: NewAuthService(repos.User, tm),
 		Ad:   NewAdService(repos.Ad),
 	}
 }

@@ -12,7 +12,9 @@ type adService struct {
 }
 
 func NewAdService(adRepo postgres.AdRepository) *adService {
-	return &adService{adRepo: adRepo}
+	return &adService{
+		adRepo: adRepo,
+	}
 }
 
 func (s *adService) CreateAd(ctx context.Context, ad *models.Ad) (int64, error) {
@@ -28,6 +30,7 @@ func (s *adService) GetAllAds(ctx context.Context, params postgres.GetAllAdsPara
 	if err != nil {
 		return nil, fmt.Errorf("service.GetAllAds: %w", err)
 	}
+
 	return ads, nil
 }
 

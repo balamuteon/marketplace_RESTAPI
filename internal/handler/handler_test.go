@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"marketplace/internal/config"
 	"marketplace/internal/models"
 	"marketplace/internal/repository/postgres"
 	"marketplace/internal/service"
@@ -23,8 +24,12 @@ import (
 func TestHandler_signUp(t *testing.T) {
 	// --- Подготовка ---
 	// Создаем "пустой" логгер, который не будет выводить логи во время тестов
+	cfg := config.Auth{
+		JWTSecret: "secret",
+		TokenTTL:  time.Hour,
+	}
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
-	tm, _ := auth.NewTokenManager("secret")
+	tm, _ := auth.NewTokenManager(cfg)
 
 	// --- Тестовые случаи ---
 	testCases := []struct {
@@ -95,8 +100,12 @@ func TestHandler_signUp(t *testing.T) {
 }
 
 func TestHandler_signIn(t *testing.T) {
+	cfg := config.Auth{
+		JWTSecret: "secret",
+		TokenTTL:  time.Hour,
+	}
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
-	tm, _ := auth.NewTokenManager("secret")
+	tm, _ := auth.NewTokenManager(cfg)
 
 	testCases := []struct {
 		name                string
@@ -162,8 +171,12 @@ func TestHandler_signIn(t *testing.T) {
 // Тестируем обработчик создания объявления
 func TestHandler_CreateAd(t *testing.T) {
 	// --- Подготовка ---
+	cfg := config.Auth{
+		JWTSecret: "secret",
+		TokenTTL:  time.Hour,
+	}
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
-	tm, _ := auth.NewTokenManager("secret")
+	tm, _ := auth.NewTokenManager(cfg)
 
 	// --- Настройка мока ---
 	mockAdService := new(service.MockAdService)
@@ -185,7 +198,7 @@ func TestHandler_CreateAd(t *testing.T) {
 	// В реальном приложении токен генерируется при логине
 	// В тесте мы его просто создаем для авторизованного пользователя с ID=1
 	testUserID := int64(1)
-	token, _ := tm.GenerateToken(testUserID, "testuser", time.Hour)
+	token, _ := tm.GenerateToken(testUserID, "testuser")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 
 	// --- Запись ответа ---
@@ -200,8 +213,12 @@ func TestHandler_CreateAd(t *testing.T) {
 
 // НОВЫЙ ТЕСТ: Тестируем обновление объявления с проверкой прав
 func TestHandler_UpdateAd(t *testing.T) {
+	cfg := config.Auth{
+		JWTSecret: "secret",
+		TokenTTL:  time.Hour,
+	}
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
-	tm, _ := auth.NewTokenManager("secret")
+	tm, _ := auth.NewTokenManager(cfg)
 
 	adID := int64(1)
 	ownerID := int64(10)
@@ -255,7 +272,7 @@ func TestHandler_UpdateAd(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 
 			// Генерируем токен для "актера"
-			token, _ := tm.GenerateToken(tc.actorID, "actor", time.Hour)
+			token, _ := tm.GenerateToken(tc.actorID, "actor")
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 
 			rec := httptest.NewRecorder()
@@ -269,8 +286,12 @@ func TestHandler_UpdateAd(t *testing.T) {
 
 // НОВЫЙ ТЕСТ: Тестируем удаление объявления с проверкой прав
 func TestHandler_DeleteAd(t *testing.T) {
+	cfg := config.Auth{
+		JWTSecret: "secret",
+		TokenTTL:  time.Hour,
+	}
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
-	tm, _ := auth.NewTokenManager("secret")
+	tm, _ := auth.NewTokenManager(cfg)
 
 	adID := int64(1)
 	ownerID := int64(10)
@@ -286,7 +307,7 @@ func TestHandler_DeleteAd(t *testing.T) {
 		router := handler.InitRoutes()
 
 		req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/ads/%d", adID), nil)
-		token, _ := tm.GenerateToken(ownerID, "owner", time.Hour)
+		token, _ := tm.GenerateToken(ownerID, "owner")
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 
 		rec := httptest.NewRecorder()
@@ -306,7 +327,7 @@ func TestHandler_DeleteAd(t *testing.T) {
 		router := handler.InitRoutes()
 
 		req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/ads/%d", adID), nil)
-		token, _ := tm.GenerateToken(notOwnerID, "not-owner", time.Hour)
+		token, _ := tm.GenerateToken(notOwnerID, "not-owner")
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 
 		rec := httptest.NewRecorder()

@@ -7,6 +7,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
     restart: unless-stopped
     environment:
       - DB_HOST=db
@@ -15,6 +17,9 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - AUTH_JWT_SECRET=${AUTH_JWT_SECRET}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=""
 
   db:
     image: postgres:16-alpine
@@ -30,6 +35,18 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+  
+  redis:
+    image: "redis:7-alpine"
+    container_name: marketplace_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
 volumes:
   postgres-data:

@@ -2,12 +2,13 @@ package service
 
 import (
 	"context"
+	"marketplace/internal/config"
 	"marketplace/internal/models"
 	"marketplace/internal/repository/postgres"
 	"marketplace/pkg/auth"
+	"marketplace/pkg/hash"
 	"testing"
 	"time"
-	"marketplace/pkg/hash"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -16,9 +17,13 @@ import (
 // Тестирование успешной регистрации
 func TestAuthService_Register_Success(t *testing.T) {
 	// 1. Настройка (Arrange)
+	cfg := config.Auth{
+		JWTSecret: "secret",
+		TokenTTL:  time.Hour,
+	}
 	mockUserRepo := new(postgres.MockUserRepository)
-	tm, _ := auth.NewTokenManager("secret")
-	authService := NewAuthService(mockUserRepo, tm, time.Hour)
+	tm, _ := auth.NewTokenManager(cfg)
+	authService := NewAuthService(mockUserRepo, tm)
 
 	username := "testuser"
 	password := "password123"
@@ -44,9 +49,13 @@ func TestAuthService_Register_Success(t *testing.T) {
 // Тестирование регистрации, когда пользователь уже существует
 func TestAuthService_Register_UserExists(t *testing.T) {
 	// 1. Настройка
+	cfg := config.Auth{
+		JWTSecret: "secret",
+		TokenTTL:  time.Hour,
+	}
 	mockUserRepo := new(postgres.MockUserRepository)
-	tm, _ := auth.NewTokenManager("secret")
-	authService := NewAuthService(mockUserRepo, tm, time.Hour)
+	tm, _ := auth.NewTokenManager(cfg)
+	authService := NewAuthService(mockUserRepo, tm)
 
 	username := "existinguser"
 	password := "password123"
@@ -68,9 +77,13 @@ func TestAuthService_Register_UserExists(t *testing.T) {
 // Тестирование успешного входа
 func TestAuthService_Login_Success(t *testing.T) {
 	// 1. Настройка
+	cfg := config.Auth{
+		JWTSecret: "secret",
+		TokenTTL:  time.Hour,
+	}
 	mockUserRepo := new(postgres.MockUserRepository)
-	tm, _ := auth.NewTokenManager("secret")
-	authService := NewAuthService(mockUserRepo, tm, time.Hour)
+	tm, _ := auth.NewTokenManager(cfg)
+	authService := NewAuthService(mockUserRepo, tm)
 
 	username := "testuser"
 	password := "password123"
@@ -98,9 +111,13 @@ func TestAuthService_Login_Success(t *testing.T) {
 // Тестирование входа с неверным паролем
 func TestAuthService_Login_InvalidCredentials(t *testing.T) {
 	// 1. Настройка
+	cfg := config.Auth{
+		JWTSecret: "secret",
+		TokenTTL:  time.Hour,
+	}
 	mockUserRepo := new(postgres.MockUserRepository)
-	tm, _ := auth.NewTokenManager("secret")
-	authService := NewAuthService(mockUserRepo, tm, time.Hour)
+	tm, _ := auth.NewTokenManager(cfg)
+	authService := NewAuthService(mockUserRepo, tm)
 
 	username := "testuser"
 	correctPassword := "password123"

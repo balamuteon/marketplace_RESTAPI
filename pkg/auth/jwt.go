@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"fmt"
+	"marketplace/internal/config"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -14,13 +15,14 @@ var (
 
 type TokenManager struct {
 	signingKey string
+	ttl        time.Duration
 }
 
-func NewTokenManager(signingKey string) (*TokenManager, error) {
-	if signingKey == "" {
+func NewTokenManager(cfg config.Auth) (*TokenManager, error) {
+	if cfg.JWTSecret == "" {
 		return nil, errors.New("empty signing key")
 	}
-	return &TokenManager{signingKey: signingKey}, nil
+	return &TokenManager{signingKey: cfg.JWTSecret, ttl: cfg.TokenTTL}, nil
 }
 
 type Claims struct {
@@ -29,10 +31,10 @@ type Claims struct {
 	Username string `json:"username"`
 }
 
-func (m *TokenManager) GenerateToken(userID int64, username string, ttl time.Duration) (string, error) {
+func (m *TokenManager) GenerateToken(userID int64, username string) (string, error) {
 	claims := Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(ttl)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(m.ttl)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 		UserID:   userID,
