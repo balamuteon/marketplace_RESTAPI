@@ -21,7 +21,6 @@ func (m *MockUserRepository) CreateUser(ctx context.Context, user *models.User) 
 // GetUserByUsername симулирует получение пользователя по имени.
 func (m *MockUserRepository) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
 	args := m.Called(ctx, username)
-	// Позволяет вернуть nil, если пользователь не найден
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

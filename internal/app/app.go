@@ -56,7 +56,7 @@ func New() (*App, error) {
 	}
 
 	// 5. Применение миграций
-	if err := runMigrations(cfg, log); err != nil {
+	if err = runMigrations(cfg, log); err != nil {
 		dbPool.Close()
 		redisClient.Client.Close()
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
@@ -117,11 +117,10 @@ func (a *App) Run() {
 	a.log.Info("server exited properly")
 }
 
-// runMigrations применяет миграции базы данных при старте приложения.
 func runMigrations(cfg *config.Config, log *slog.Logger) error {
-	sslMode := "disable"
-	if cfg.Env != "local" {
-		sslMode = "require"
+	sslMode := cfg.Database.SSLMode
+	if sslMode == "" {
+		sslMode = "disable"
 	}
 
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
@@ -148,7 +147,6 @@ func runMigrations(cfg *config.Config, log *slog.Logger) error {
 	return nil
 }
 
-// setupSwagger настраивает статическую информацию для документации.
 func setupSwagger(cfg *config.Config) {
 	docs.SwaggerInfo.Title = "Marketplace API"
 	docs.SwaggerInfo.Description = "API для учебного проекта торговой площадки."
@@ -164,41 +162,32 @@ func setupSwagger(cfg *config.Config) {
 	}
 }
 
-// initDB инициализирует подключение к базе данных.
 func initDB(cfg *config.Config, log *slog.Logger) (*pgxpool.Pool, error) {
 	dbPool, err := postgres.NewConnection(cfg.Database, log)
 	if err != nil {
-		return nil, err // Просто возвращаем ошибку
+		return nil, err
 	}
-	// Ping остается для проверки
-	if err := dbPool.Ping(context.Background()); err != nil {
+	if err = dbPool.Ping(context.Background()); err != nil {
 		return nil, err
 	}
 	return dbPool, err
 }
 
-// initRouter собирает все слои приложения и инициализирует роутер.
 func initRouter(dbPool *pgxpool.Pool, redis *redis.CacheClient, tm *auth.TokenManager, cfg *config.Config, log *slog.Logger) *gin.Engine {
-	// 1. Создаем основной репозиторий, который работает с PostgreSQL.
 	postgresRepos := postgres.NewRepository(dbPool)
 
-	// 2. "Оборачиваем" репозиторий объявлений кеширующим декоратором.
 	cachedAdRepo := cache.NewAdRepository(postgresRepos.Ad, redis)
 
-	// 3. Создаем "обертку" для репозиториев, где Ad заменен на кеширующий.
 	finalRepos := &postgres.Repository{
 		User: postgresRepos.User,
 		Ad:   cachedAdRepo,
 	}
 
-	// 4. Передаем итоговый набор репозиториев в сервис.
-	// AdService теперь будет работать с кеширующей версией, даже не зная об этом.
 	services := service.NewService(finalRepos, tm)
 	handlers := handler.NewHandler(services, tm, log)
 	return handlers.InitRoutes()
 }
 
-// initServer настраивает HTTP-сервер.
 func initServer(cfg *config.Config, router *gin.Engine) *http.Server {
 	return &http.Server{
 		Addr:         ":" + cfg.HTTPServer.Port,

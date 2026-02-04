@@ -168,9 +168,7 @@ func TestHandler_signIn(t *testing.T) {
 	}
 }
 
-// Тестируем обработчик создания объявления
 func TestHandler_CreateAd(t *testing.T) {
-	// --- Подготовка ---
 	cfg := config.Auth{
 		JWTSecret: "secret",
 		TokenTTL:  time.Hour,
@@ -178,40 +176,30 @@ func TestHandler_CreateAd(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	tm, _ := auth.NewTokenManager(cfg)
 
-	// --- Настройка мока ---
 	mockAdService := new(service.MockAdService)
 	adID := int64(123)
-	// Ожидаем, что сервис будет вызван с данными объявления и вернет ID
 	mockAdService.On("CreateAd", mock.Anything, mock.AnythingOfType("*models.Ad")).Return(adID, nil)
 
-	// --- Инициализация ---
 	services := &service.Service{Ad: mockAdService}
 	handler := NewHandler(services, tm, logger)
 	router := handler.InitRoutes()
 
-	// --- Создание запроса ---
 	requestBody := `{"title": "Test Ad", "description": "A great ad", "price": 99.99}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/ads", bytes.NewBufferString(requestBody))
 	req.Header.Set("Content-Type", "application/json")
 
-	// --- Симуляция авторизации через Middleware ---
-	// В реальном приложении токен генерируется при логине
-	// В тесте мы его просто создаем для авторизованного пользователя с ID=1
 	testUserID := int64(1)
 	token, _ := tm.GenerateToken(testUserID, "testuser")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 
-	// --- Запись ответа ---
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
-	// --- Проверка ---
 	assert.Equal(t, http.StatusCreated, rec.Code)
 	assert.JSONEq(t, fmt.Sprintf(`{"id":%d}`, adID), rec.Body.String())
 	mockAdService.AssertExpectations(t)
 }
 
-// НОВЫЙ ТЕСТ: Тестируем обновление объявления с проверкой прав
 func TestHandler_UpdateAd(t *testing.T) {
 	cfg := config.Auth{
 		JWTSecret: "secret",
@@ -226,7 +214,7 @@ func TestHandler_UpdateAd(t *testing.T) {
 
 	testCases := []struct {
 		name               string
-		actorID            int64 // ID пользователя, который выполняет действие
+		actorID            int64
 		mockServiceError   error
 		expectedStatusCode int
 		expectedBodyPart   string
@@ -241,14 +229,14 @@ func TestHandler_UpdateAd(t *testing.T) {
 		{
 			name:               "Попытка обновления НЕ владельцем",
 			actorID:            notOwnerID,
-			mockServiceError:   postgres.ErrAdAccessDenied, // Симулируем ошибку доступа от сервиса
+			mockServiceError:   postgres.ErrAdAccessDenied,
 			expectedStatusCode: http.StatusForbidden,
 			expectedBodyPart:   `"message":"access denied"`,
 		},
 		{
 			name:               "Попытка обновления несуществующего объявления",
 			actorID:            ownerID,
-			mockServiceError:   postgres.ErrAdNotFound, // Симулируем ошибку "не найдено"
+			mockServiceError:   postgres.ErrAdNotFound,
 			expectedStatusCode: http.StatusNotFound,
 			expectedBodyPart:   `"message":"ad not found"`,
 		},
@@ -257,9 +245,6 @@ func TestHandler_UpdateAd(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockAdService := new(service.MockAdService)
-			// Программируем мок, ожидая вызов UpdateAd
-			// Здесь мы не будем проверять тело запроса для простоты,
-			// но в реальном проекте это стоило бы сделать.
 			mockAdService.On("UpdateAd", mock.Anything, adID, tc.actorID, mock.AnythingOfType("models.UpdateAdRequest")).
 				Return(&models.Ad{ID: adID}, tc.mockServiceError)
 
@@ -271,7 +256,6 @@ func TestHandler_UpdateAd(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPatch, fmt.Sprintf("/api/v1/ads/%d", adID), bytes.NewBufferString(requestBody))
 			req.Header.Set("Content-Type", "application/json")
 
-			// Генерируем токен для "актера"
 			token, _ := tm.GenerateToken(tc.actorID, "actor")
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 
@@ -284,7 +268,6 @@ func TestHandler_UpdateAd(t *testing.T) {
 	}
 }
 
-// НОВЫЙ ТЕСТ: Тестируем удаление объявления с проверкой прав
 func TestHandler_DeleteAd(t *testing.T) {
 	cfg := config.Auth{
 		JWTSecret: "secret",
@@ -297,7 +280,6 @@ func TestHandler_DeleteAd(t *testing.T) {
 	ownerID := int64(10)
 	notOwnerID := int64(20)
 
-	// Сценарий 1: Успешное удаление
 	t.Run("Успешное удаление владельцем", func(t *testing.T) {
 		mockAdService := new(service.MockAdService)
 		mockAdService.On("DeleteAd", mock.Anything, adID, ownerID).Return(nil)
@@ -317,7 +299,6 @@ func TestHandler_DeleteAd(t *testing.T) {
 		mockAdService.AssertExpectations(t)
 	})
 
-	// Сценарий 2: Попытка удаления НЕ владельцем
 	t.Run("Попытка удаления НЕ владельцем", func(t *testing.T) {
 		mockAdService := new(service.MockAdService)
 		mockAdService.On("DeleteAd", mock.Anything, adID, notOwnerID).Return(postgres.ErrAdAccessDenied)

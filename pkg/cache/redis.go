@@ -18,6 +18,10 @@ type CacheClient struct {
 	ttl    time.Duration
 }
 
+func (c *CacheClient) TTL() time.Duration {
+	return c.ttl
+}
+
 // NewRedisClient создает и возвращает нового клиента для Redis.
 func NewRedisClient(cfg config.Redis) (*CacheClient, error) {
 	rdb := redis.NewClient(&redis.Options{
@@ -30,7 +34,6 @@ func NewRedisClient(cfg config.Redis) (*CacheClient, error) {
 	rdb.ConfigSet(ctx, "maxmemory", "100mb")
 	rdb.ConfigSet(ctx, "maxmemory-policy", "allkeys-lru")
 
-	// Проверяем соединение
 	if err := rdb.Ping(context.Background()).Err(); err != nil {
 		return nil, fmt.Errorf("failed to connect to redis: %w", err)
 	}

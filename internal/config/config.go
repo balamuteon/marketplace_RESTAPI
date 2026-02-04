@@ -65,6 +65,9 @@ func LoadConfig() *Config {
 
 	viper.AutomaticEnv()
 
+	// Env
+	_ = viper.BindEnv("env", "ENV")
+
 	// Server
 	_ = viper.BindEnv("http_server.port", "HTTP_SERVER_PORT")
 	_ = viper.BindEnv("http_server.timeout", "HTTP_SERVER_TIMEOUT")
@@ -72,9 +75,11 @@ func LoadConfig() *Config {
 
 	// Database
 	_ = viper.BindEnv("db.host", "DB_HOST")
+	_ = viper.BindEnv("db.port", "DB_PORT")
 	_ = viper.BindEnv("db.user", "DB_USER")
 	_ = viper.BindEnv("db.password", "DB_PASSWORD")
 	_ = viper.BindEnv("db.dbname", "DB_NAME")
+	_ = viper.BindEnv("db.sslmode", "DB_SSLMODE")
 
 	// Redis
 	_ = viper.BindEnv("redis.host", "REDIS_HOST")
@@ -90,6 +95,16 @@ func LoadConfig() *Config {
 	var cfg Config
 	if err := viper.Unmarshal(&cfg); err != nil {
 		log.Fatalf("Unable to decode into struct, %v", err)
+	}
+
+	if cfg.Database.Port == "" {
+		cfg.Database.Port = "5432"
+	}
+	if cfg.Database.SSLMode == "" {
+		cfg.Database.SSLMode = "disable"
+	}
+	if cfg.Env != "local" && os.Getenv("DB_SSLMODE") == "" {
+		cfg.Database.SSLMode = "require"
 	}
 
 	if port := os.Getenv("PORT"); port != "" {

@@ -2,14 +2,11 @@ package cache
 
 import (
 	"context"
-	// "encoding/json"
+	"encoding/json"
 	"fmt"
 	"marketplace/internal/models"
 	"marketplace/internal/repository/postgres"
 	"marketplace/pkg/cache"
-	// "time"
-
-	// "github.com/redis/go-redis/v9"
 )
 
 // AdRepository является декоратором над postgres.AdRepository для добавления кеширования.
@@ -28,10 +25,14 @@ func NewAdRepository(postgresRepo postgres.AdRepository, cache *cache.CacheClien
 
 // adListCacheKey генерирует уникальный ключ для кеша списка объявлений.
 func adListCacheKey(params postgres.GetAllAdsParams) string {
-	page := params.Offset/params.Limit + 1
+	limit := params.Limit
+	page := 1
+	if limit > 0 {
+		page = params.Offset/limit + 1
+	}
 	return fmt.Sprintf("ads:page=%d&limit=%d&sort_by=%s&sort_order=%s",
 		page,
-		params.Limit,
+		limit,
 		params.SortBy,
 		params.SortOrder,
 	)
@@ -39,33 +40,29 @@ func adListCacheKey(params postgres.GetAllAdsParams) string {
 
 // GetAllAds сначала проверяет кеш, и только в случае промаха обращается к репозиторию БД.
 func (r *AdRepository) GetAllAds(ctx context.Context, params postgres.GetAllAdsParams) ([]models.Ad, error) {
-	// key := adListCacheKey(params)
+	key := adListCacheKey(params)
 
-	// 1. Пытаемся получить данные из кеша.
-	// cachedJSON, err := r.cache.Client.Get(ctx, key).Result()
-	// if err == nil {
-	// 	var ads []models.Ad
-	// 	if json.Unmarshal([]byte(cachedJSON), &ads) == nil {
-	// 		// Попадание в кеш!
-	// 		return ads, nil
-	// 	}
-	// }
+	if r.cache != nil && r.cache.Client != nil {
+		cachedJSON, err := r.cache.Client.Get(ctx, key).Result()
+		if err == nil {
+			var ads []models.Ad
+			if json.Unmarshal([]byte(cachedJSON), &ads) == nil {
+				return ads, nil
+			}
+		}
+	}
 
-	// if err != redis.Nil {
-	// 	fmt.Printf("Ошибка получения данных из Redis: %v\n", err)
-	// }
-
-	// 2. Промах кеша. Идем в основной репозиторий (в PostgreSQL).
 	ads, err := r.postgresRepo.GetAllAds(ctx, params)
 	if err != nil {
 		return nil, err
 	}
 
-	// 3. Сохраняем результат в кеш.
-	// adsJSON, err := json.Marshal(ads)
-	// if err == nil {
-	// 	r.cache.Client.Set(ctx, key, adsJSON, 2*time.Minute).Err()
-	// }
+	if r.cache != nil && r.cache.Client != nil {
+		adsJSON, err := json.Marshal(ads)
+		if err == nil {
+			r.cache.Client.Set(ctx, key, adsJSON, r.cache.TTL()).Err()
+		}
+	}
 
 	return ads, nil
 }
@@ -74,7 +71,6 @@ func (r *AdRepository) GetAllAds(ctx context.Context, params postgres.GetAllAdsP
 
 // CreateAd создает объявление в БД. В текущей стратегии с TTL мы не инвалидируем кеш принудительно.
 func (r *AdRepository) CreateAd(ctx context.Context, ad *models.Ad) (int64, error) {
-	// Просто передаем вызов основному репозиторию.
 	return r.postgresRepo.CreateAd(ctx, ad)
 }
 
@@ -90,7 +86,6 @@ func (r *AdRepository) DeleteAd(ctx context.Context, id, userID int64) error {
 }
 
 // GetAdByID просто проксирует вызов к основному репозиторию.
-// В будущем можно добавить кеширование для отдельных объявлений здесь.
 func (r *AdRepository) GetAdByID(ctx context.Context, id int64) (*models.Ad, error) {
 	return r.postgresRepo.GetAdByID(ctx, id)
 }
